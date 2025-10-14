@@ -1,0 +1,33 @@
+{
+    profile: "baremetal",
+    packages: [
+        "genpack/wireless",  // use system.ini to configure wifi connection
+        "app-misc/screen",
+        "media-video/mpv",
+        "media-video/libva-utils",
+        "media-libs/libva-intel-driver",
+        "media-libs/libva-intel-media-driver",
+        "x11-apps/igt-gpu-tools",
+        "app-misc/radeontop",
+        "app-misc/status-beep",
+        "www-servers/nginx"
+    ],
+    accept_keywords: {
+        // always use the latest stable kernel
+        "sys-kernel/gentoo-kernel-bin": null,
+        "virtual/dist-kernel": null, // for gentoo-kernel-bin
+        "sys-kernel/linux-firmware": null,
+        "x11-apps/igt-gpu-tools": null,
+    },
+    use: {
+        "media-video/mpv": "-X -wayland -vulkan nvenc vaapi",
+        "media-video/ffmpeg": "v4l x265 opus lame srt vaapi qsv nvenc",
+        "media-libs/mesa": "vaapi -X -wayland -vulkan VIDEO_CARDS: virgl",
+        "app-misc/mime-types": "nginx"
+    },
+    license: {
+        "sys-kernel/linux-firmware": "linux-fw-redistributable",
+        "media-libs/libva-intel-media-driver": "no-source-code",
+    },
+    services: ["status-beep"],
+}
