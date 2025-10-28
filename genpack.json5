@@ -4,13 +4,21 @@
         "genpack/wireless",  // use system.ini to configure wifi connection
         "app-misc/screen",
         "media-video/mpv",
+        "media-video/v4l2loopback",
+        "media-sound/alsa-utils",
         "media-video/libva-utils",
         "media-libs/libva-intel-driver",
         "media-libs/libva-intel-media-driver",
+        "media-libs/intel-hybrid-codec-driver",
         "x11-apps/igt-gpu-tools",
         "app-misc/radeontop",
         "app-misc/status-beep",
-        "www-servers/nginx"
+        "www-servers/nginx",
+//        "media-video/mjpg-streamer", // waiting for https://github.com/gentoo/gentoo/pull/41269 to be merged
+        "media-libs/libjpeg-turbo", // so, this has to be pulled manually till then
+        "dev-lang/tcl", // for srs
+        "net-libs/libsrtp", // for srs
+        "media-video/motion",
     ],
     accept_keywords: {
         // always use the latest stable kernel
@@ -18,11 +26,16 @@
         "virtual/dist-kernel": null, // for gentoo-kernel-bin
         "sys-kernel/linux-firmware": null,
         "x11-apps/igt-gpu-tools": null,
+        "media-video/v4l2loopback": null,
+        "media-video/mjpg-streamer": null,
+        "media-videi/motion": null,
     },
     use: {
         "media-video/mpv": "-X -wayland -vulkan nvenc vaapi",
-        "media-video/ffmpeg": "v4l x265 opus lame srt vaapi qsv nvenc",
+        "media-video/v4l2loopback": "dist-kernel",
+        "media-video/ffmpeg": "v4l x265 opus lame srt vaapi qsv nvenc alsa",
         "media-libs/mesa": "vaapi -X -wayland -vulkan VIDEO_CARDS: virgl",
+        "media-libs/opencv": "features2d",
         "app-misc/mime-types": "nginx"
     },
     license: {
