@@ -33,7 +33,7 @@
     use: {
         "media-video/mpv": "-X -wayland -vulkan nvenc vaapi",
         "media-video/v4l2loopback": "dist-kernel",
-        "media-video/ffmpeg": "v4l x265 opus lame srt vaapi qsv nvenc alsa",
+        "media-video/ffmpeg": "v4l x264 x265 opus lame srt vaapi qsv nvenc alsa",
         "media-libs/mesa": "vaapi -X -wayland -vulkan VIDEO_CARDS: virgl",
         "media-libs/opencv": "features2d",
         "app-misc/mime-types": "nginx"
