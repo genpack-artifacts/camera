@@ -19,6 +19,7 @@
         "dev-lang/tcl", // for srs
         "net-libs/libsrtp", // for srs
         "media-video/motion",
+        "net-misc/networkmanager",
     ],
     accept_keywords: {
         // always use the latest stable kernel
@@ -36,7 +37,8 @@
         "media-video/ffmpeg": "v4l x264 x265 opus lame srt vaapi qsv nvenc alsa",
         "media-libs/mesa": "vaapi -X -wayland -vulkan VIDEO_CARDS: virgl",
         "media-libs/opencv": "features2d",
-        "app-misc/mime-types": "nginx"
+        "app-misc/mime-types": "nginx",
+        "net-misc/networkmanager": "-wifi -wext",
     },
     license: {
         "sys-kernel/linux-firmware": "linux-fw-redistributable",
