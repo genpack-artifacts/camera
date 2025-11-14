@@ -20,6 +20,8 @@
         "net-libs/libsrtp", // for srs
         "media-video/motion",
         "net-misc/networkmanager",
+        "dev-python/aiohttp",
+        "dev-python/pillow",
     ],
     accept_keywords: {
         // always use the latest stable kernel
@@ -38,7 +40,7 @@
         "media-libs/mesa": "vaapi -X -wayland -vulkan VIDEO_CARDS: virgl",
         "media-libs/opencv": "features2d",
         "app-misc/mime-types": "nginx",
-        "net-misc/networkmanager": "-wifi -wext",
+        "net-wireless/wpa_supplicant": "dbus", // networkmanager[wifi] needs this
     },
     license: {
         "sys-kernel/linux-firmware": "linux-fw-redistributable",
