@@ -7,7 +7,7 @@
         "genpack/wireless",  // use system.ini to configure wifi connection
         "app-misc/screen",
         "media-video/mpv",
-        "media-video/v4l2loopback",
+        //"media-video/v4l2loopback", // not compatible with Linux 6.18
         "media-sound/alsa-utils",
         "media-video/libva-utils",
         "media-libs/libva-intel-driver",
