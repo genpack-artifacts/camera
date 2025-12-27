@@ -2,7 +2,7 @@
 set -e
 
 #SRS_DOWNLOAD_URL=`get-github-download-url ossrs srs '.*\.tar.gz$'`
-SRS_DOWNLOAD_URL="https://github.com/ossrs/srs/releases/download/v6.0-b2/srs-server-6.0-b2.tar.gz"
+SRS_DOWNLOAD_URL="https://github.com/ossrs/srs/releases/download/v6.0-r0/srs-server-6.0-r0.tar.gz"
 
 download $SRS_DOWNLOAD_URL | tar zxvf - -C /tmp
 cd /tmp/srs-server-*/trunk
