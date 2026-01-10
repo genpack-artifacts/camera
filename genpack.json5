@@ -11,7 +11,7 @@
         "media-sound/alsa-utils",
         "media-video/libva-utils",
         "media-libs/libva-intel-driver",
-        "media-libs/libva-intel-media-driver",
+        "media-libs/vpl-gpu-rt",
         "media-libs/intel-hybrid-codec-driver",
         "x11-apps/igt-gpu-tools",
         "dev-libs/weston",
@@ -40,6 +40,7 @@
         "virtual/dist-kernel": null, // for gentoo-kernel-bin
         "sys-kernel/linux-firmware": null,
         "x11-apps/igt-gpu-tools": null,
+        "media-libs/vpl-gpu-rt": null,
         "media-video/v4l2loopback": null,
         "media-video/mjpg-streamer": null,
         "media-videi/motion": null,
