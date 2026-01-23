@@ -15,6 +15,7 @@
         "media-libs/intel-hybrid-codec-driver",
         "x11-apps/igt-gpu-tools",
         "dev-libs/weston",
+        "gui-apps/waypipe",
         "app-misc/radeontop",
         "app-misc/status-beep",
         "www-servers/nginx",
@@ -23,6 +24,9 @@
         "dev-lang/tcl", // for srs
         "net-libs/libsrtp", // for srs
         "media-video/motion",
+        "media-fonts/noto-cjk",
+        "media-fonts/noto-emoji",
+        "media-video/obs-studio",
         "net-misc/networkmanager",
         "dev-python/aiohttp",
         "dev-python/pillow",
@@ -41,9 +45,11 @@
         "sys-kernel/linux-firmware": null,
         "x11-apps/igt-gpu-tools": null,
         "media-libs/vpl-gpu-rt": null,
+        "media-libs/libva-intel-media-driver": null,
         "media-video/v4l2loopback": null,
         "media-video/mjpg-streamer": null,
-        "media-videi/motion": null,
+        "media-video/motion": null,
+        "media-video/obs-studio": null,
     },
     use: {
         "media-libs/libva": "wayland",
@@ -52,8 +58,14 @@
         "media-video/ffmpeg": "v4l x264 x265 opus lame srt vaapi qsv nvenc alsa",
         "media-libs/mesa": "vaapi -X wayland vulkan VIDEO_CARDS: virgl",
         "media-libs/vulkan-loader": "wayland",
+        "media-libs/libglvnd": "X", // for media-video/obs-studio
+        "x11-libs/libxkbcommon": "X", // for media-video/obs-studio
+        "dev-qt/qtbase": "vulkan opengl wayland", // for media-video/obs-studio[wayland]
+        "media-libs/freetype": "harfbuzz", // for media-video/obs-studio[browser]
+        "media-video/obs-studio": "browser lua nvenc python qsv truetype v4l wayland websocket",
         "media-libs/opencv": "features2d",
         "dev-libs/weston": "kiosk",
+        "gui-apps/waypipe": "dmabuf ffmpeg lz4 systemtap vaapi zstd CPU_FLAGS_X86: avx2 avx512f sse3",
         "sys-auth/seatd": "server",
         "app-misc/mime-types": "nginx",
         "net-wireless/wpa_supplicant": "dbus", // networkmanager[wifi] needs this
@@ -65,6 +77,19 @@
         "media-libs/libva-intel-media-driver": "no-source-code",
         "net-analyzer/fping": "fping",
     },
+    users: [
+        {
+            name: "user",
+            uid: 1000,
+            "empty-password": true,
+            "additional-groups": [
+                "audio",
+                "video",
+                "render",
+                "usb",
+            ]
+        }
+    ],
     setup_commands: [
         "pip install --break-system-packages onnxruntime"
     ],
