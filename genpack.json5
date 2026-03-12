@@ -46,6 +46,7 @@
         "x11-apps/igt-gpu-tools": null,
         "media-libs/vpl-gpu-rt": null,
         "media-libs/libva-intel-media-driver": null,
+        "media-libs/gmmlib": null,
         "media-video/v4l2loopback": null,
         "media-video/mjpg-streamer": null,
         "media-video/motion": null,
@@ -60,6 +61,7 @@
         "media-libs/mesa": "vaapi -X wayland vulkan VIDEO_CARDS: virgl",
         "media-libs/vulkan-loader": "wayland",
         "media-libs/libglvnd": "X", // for media-video/obs-studio
+        "x11-libs/libdrm": "tools",
         "x11-libs/libxkbcommon": "X", // for media-video/obs-studio
         "dev-qt/qtbase": "vulkan opengl wayland", // for media-video/obs-studio[wayland]
         "dev-qt/qttools": "opengl", // for dev-qt/qtbase[opengl]
