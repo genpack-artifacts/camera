@@ -1,0 +1,30 @@
+#!/bin/sh
+
+WAIT_SECONDS="${WAIT_SECONDS:-10}"
+
+if [ "$#" -eq 0 ]; then
+    echo "Usage: $0 command [args...]" >&2
+    exit 2
+fi
+
+while :; do
+    echo "Starting: $*" >&2
+
+    "$@"
+    status=$?
+
+    case "$status" in
+        0)
+            echo "Command exited normally with status 0. Not restarting." >&2
+            exit 0
+            ;;
+        255)
+            echo "Command exited with status 255. Not restarting." >&2
+            exit 255
+            ;;
+        *)
+            echo "Command exited with status $status. Restarting after ${WAIT_SECONDS}s..." >&2
+            sleep "$WAIT_SECONDS"
+            ;;
+    esac
+done

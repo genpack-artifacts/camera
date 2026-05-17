@@ -28,9 +28,14 @@
         "media-fonts/noto-emoji",
         "media-video/obs-studio",
         "net-misc/networkmanager",
+        "net-dns/bind-tools",
         "dev-python/aiohttp",
+        "dev-python/ffmpeg-python",
         "dev-python/pillow",
+        "dev-python/evdev",     // HID
+        "dev-vcs/git",
         "net-analyzer/zabbix",
+        "sys-apps/is-keyboard-plugged", // https://github.com/shimarin/is-keyboard-plugged
         // object recognition
         "dev-python/coloredlogs",
         "dev-python/flatbuffers",
@@ -40,7 +45,7 @@
     ],
     accept_keywords: {
         // always use the latest stable kernel
-        "sys-kernel/gentoo-kernel-bin": null,
+        "<sys-kernel/gentoo-kernel-bin-7": null, // >=7.0 masked because of RTL8723BS regression caused by cleanups
         "virtual/dist-kernel": null, // for gentoo-kernel-bin
         "sys-kernel/linux-firmware": null,
         "x11-apps/igt-gpu-tools": null,

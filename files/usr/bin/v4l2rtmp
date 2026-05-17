@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+import argparse
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+# V4L2 FOURCC → ffmpeg -input_format name
+FOURCC_TO_FFMPEG = {
+    'YUYV': 'yuyv422',
+    'UYVY': 'uyvy422',
+    'MJPG': 'mjpeg',
+    'H264': 'h264',
+    'HEVC': 'hevc',
+    'NV12': 'nv12',
+    'NV21': 'nv21',
+    'YU12': 'yuv420p',
+    'YV12': 'yuv420p',
+    'RGB3': 'rgb24',
+    'BGR3': 'bgr24',
+    'GREY': 'gray',
+}
+
+
+@dataclass
+class FrameSize:
+    width: int
+    height: int
+    fps_list: list[float] = field(default_factory=list)
+
+    @property
+    def pixels(self):
+        return self.width * self.height
+
+    @property
+    def max_fps(self):
+        return max(self.fps_list) if self.fps_list else 0.0
+
+    def fmt_fps_list(self):
+        def fmt(f):
+            return f'{f:.0f}fps' if f == int(f) else f'{f:.3f}fps'
+        return ', '.join(fmt(f) for f in sorted(self.fps_list, reverse=True))
+
+
+@dataclass
+class PixelFormat:
+    fourcc: str
+    description: str
+    sizes: list[FrameSize] = field(default_factory=list)
+
+
+@dataclass
+class CameraInfo:
+    device: str
+    name: str
+    formats: list[PixelFormat] = field(default_factory=list)
+
+
+def run_v4l2_ctl(*args):
+    try:
+        r = subprocess.run(['v4l2-ctl'] + list(args),
+                           capture_output=True, text=True, timeout=5)
+        return r.stdout
+    except FileNotFoundError:
+        return None  # v4l2-ctl not installed
+    except subprocess.TimeoutExpired:
+        return ''
+
+
+def parse_formats(output):
+    formats = []
+    current_fmt = None
+    current_size = None
+    for line in output.splitlines():
+        m = re.match(r"\s+\[\d+\]: '(.{4})' \((.+?)\)", line)
+        if m:
+            current_fmt = PixelFormat(fourcc=m.group(1).strip(), description=m.group(2))
+            formats.append(current_fmt)
+            current_size = None
+            continue
+        m = re.match(r'\s+Size: Discrete (\d+)x(\d+)', line)
+        if m and current_fmt:
+            current_size = FrameSize(int(m.group(1)), int(m.group(2)))
+            current_fmt.sizes.append(current_size)
+            continue
+        m = re.match(r'\s+Interval: Discrete .+? \((\d+\.\d+) fps\)', line)
+        if m and current_size:
+            current_size.fps_list.append(float(m.group(1)))
+    return formats
+
+
+def get_device_name(device):
+    output = run_v4l2_ctl('-d', device, '--info') or ''
+    m = re.search(r'Card type\s*:\s*(.+)', output)
+    return m.group(1).strip() if m else 'Unknown'
+
+
+def scan_all_devices():
+    output = run_v4l2_ctl('--list-devices')
+    if output is None:
+        print('Warning: v4l2-ctl not found (install media-video/v4l-utils for full info)',
+              file=sys.stderr)
+        return [(str(p), '') for p in sorted(Path('/dev').glob('video[0-9]*'))]
+
+    devices = []
+    current_name = None
+    for line in output.splitlines():
+        if line and not line[0].isspace():
+            # Strip trailing "(usb-xxxx):" identifier
+            current_name = re.sub(r'\s+\([^)]+\):\s*$', '', line).strip()
+        elif line.startswith('\t') and current_name:
+            dev = line.strip()
+            if re.match(r'/dev/video\d+', dev):
+                devices.append((dev, current_name))
+    return devices
+
+
+def get_camera_info(device, name=None):
+    if name is None:
+        name = get_device_name(device)
+    raw = run_v4l2_ctl('-d', device, '--list-formats-ext') or ''
+    return CameraInfo(device=device, name=name, formats=parse_formats(raw))
+
+
+def display_camera_info(cam: CameraInfo, highlight: tuple | None = None):
+    """Print camera formats. highlight=(fourcc, width, height) marks the auto-selected entry."""
+    print(f'{cam.device}  {cam.name}')
+    capture_fmts = [f for f in cam.formats if f.sizes]
+    if not capture_fmts:
+        print('  (no discrete capture formats found)')
+        return
+    for fmt in capture_fmts:
+        print(f'  [{fmt.fourcc}] {fmt.description}')
+        for size in sorted(fmt.sizes, key=lambda s: (-s.pixels, -s.max_fps)):
+            fps_str = size.fmt_fps_list() or '?fps'
+            marker = ''
+            if highlight and highlight == (fmt.fourcc, size.width, size.height):
+                marker = '  ◀ auto-select'
+            print(f'    {size.width}x{size.height:<8}  {fps_str}{marker}')
+
+
+def select_best(formats, priority, fourcc=None):
+    """Return (PixelFormat, FrameSize, fps) per priority, or None."""
+    candidates = [
+        (fmt, size, size.max_fps)
+        for fmt in formats
+        for size in fmt.sizes
+        if size.fps_list and (fourcc is None or fmt.fourcc == fourcc)
+    ]
+    if not candidates:
+        return None
+    if priority == 'resolution':
+        return max(candidates, key=lambda c: (c[1].pixels, c[2]))
+    else:  # framerate
+        return max(candidates, key=lambda c: (c[2], c[1].pixels))
+
+
+def fmt_fps(fps):
+    return str(int(fps)) if fps == int(fps) else str(fps)
+
+
+def _vainfo_supports_h264_enc(device):
+    """Return True if vainfo reports H.264 encode support on the device."""
+    try:
+        r = subprocess.run(
+            ['vainfo', '--display', 'drm', '--device', device],
+            capture_output=True, text=True, timeout=5,
+        )
+        return 'VAProfileH264' in r.stdout and 'VAEntrypointEncSlice' in r.stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None  # vainfo unavailable
+
+
+def _ffmpeg_supports_h264_enc(device):
+    """Quick ffmpeg encode test. Slower fallback when vainfo is absent."""
+    r = subprocess.run(
+        ['ffmpeg', '-hide_banner', '-vaapi_device', device,
+         '-f', 'lavfi', '-i', 'color=black:size=64x64:rate=1',
+         '-vf', 'format=nv12,hwupload', '-c:v', 'h264_vaapi',
+         '-frames:v', '1', '-f', 'null', '-'],
+        capture_output=True, timeout=10,
+    )
+    return r.returncode == 0
+
+
+def find_vaapi_device():
+    """Return the first /dev/dri/renderD* that supports VAAPI H.264 encoding."""
+    devices = sorted(Path('/dev/dri').glob('renderD*'), key=lambda p: p.name)
+    if not devices:
+        return None
+    for dev in devices:
+        device = str(dev)
+        result = _vainfo_supports_h264_enc(device)
+        if result is None:
+            # vainfo not available — fall back to ffmpeg probe
+            if _ffmpeg_supports_h264_enc(device):
+                return device
+        elif result:
+            return device
+    # nothing matched capability check; return first as last resort
+    return str(devices[0])
+
+
+def find_font():
+    """Return a monospace font path for timestamp overlay, or None to rely on fontconfig."""
+    candidates = [
+        '/usr/share/fonts/Adwaita/AdwaitaMono-Regular.ttf',
+        '/usr/share/fonts/liberation-fonts/LiberationMono-Regular.ttf',
+        '/usr/share/fonts/TTF/DejaVuSansMono.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
+    ]
+    return next((p for p in candidates if Path(p).exists()), None)
+
+
+def build_drawtext_filter():
+    opts = []
+    font = find_font()
+    if font:
+        opts.append(f'fontfile={font}')
+    opts += [
+        "text='%{localtime\\:%Y-%m-%d %T}'",
+        'fontsize=max(w/60\\,12)',  # subtle; \, escapes comma for ffmpeg filter parser
+        'x=w-tw-10',
+        'y=h-th-10',
+        'fontcolor=white',
+        'shadowcolor=black@0.8',
+        'shadowx=1',
+        'shadowy=1',
+    ]
+    return 'drawtext=' + ':'.join(opts)
+
+
+def build_ffmpeg_cmd(video_device, vaapi_device, rtmp_url,
+                     input_format=None, video_size=None, framerate=None,
+                     global_quality=None, timestamp=False, hw_decode=False):
+    cmd = ['ffmpeg', '-hide_banner']
+    if not sys.stderr.isatty():
+        cmd += ['-nostats']
+    cmd += ['-vaapi_device', vaapi_device]
+    if hw_decode:
+        cmd += ['-hwaccel', 'vaapi', '-hwaccel_output_format', 'vaapi']
+    cmd += ['-f', 'v4l2']
+    if input_format:
+        cmd += ['-input_format', input_format]
+    if video_size:
+        cmd += ['-video_size', video_size]
+    if framerate is not None:
+        cmd += ['-framerate', fmt_fps(framerate)]
+    cmd += ['-i', video_device]
+
+    if hw_decode:
+        # frames are already in VAAPI memory; drawtext needs a CPU round-trip
+        if timestamp:
+            vf_parts = ['hwdownload', 'format=nv12', build_drawtext_filter(),
+                        'hwupload=extra_hw_frames=64']
+        else:
+            vf_parts = ['scale_vaapi=format=nv12']
+    else:
+        vf_parts = ['format=nv12']
+        if timestamp:
+            vf_parts.append(build_drawtext_filter())
+        vf_parts.append('hwupload=extra_hw_frames=64')
+    cmd += ['-vf', ','.join(vf_parts), '-c:v', 'h264_vaapi']
+
+    if global_quality is not None:
+        cmd += ['-global_quality', str(global_quality)]
+    cmd += ['-f', 'flv', rtmp_url]
+    return cmd
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Stream a V4L2 video device to RTMP using VAAPI H.264 encoding.\n'
+                    'Omit RTMP_URL to scan and display camera information.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='Examples:\n'
+               '  %(prog)s                                        # scan all cameras\n'
+               '  %(prog)s --video-device /dev/video2             # scan specific camera\n'
+               '  %(prog)s --priority resolution                  # show auto-select for all\n'
+               '  %(prog)s --priority framerate rtmp://host/live/cam  # stream with auto-select\n'
+               '  %(prog)s --video-device /dev/video2 --vaapi-device /dev/dri/renderD129 \\\n'
+               '           --priority resolution rtmp://host/live/cam',
+    )
+    parser.add_argument('--video-device', default=None,
+                        help='V4L2 device path (scan mode: all devices if omitted; '
+                             'stream mode: /dev/video0 if omitted)')
+    parser.add_argument('--vaapi-device', default=None,
+                        help='VAAPI render device path (default: let ffmpeg choose)')
+    parser.add_argument('--priority', choices=['resolution', 'framerate'], default=None,
+                        help='Auto-select capture format: '
+                             '"resolution" = highest res then fps, '
+                             '"framerate" = highest fps then res')
+    parser.add_argument('--hw-decode', action='store_true',
+                        help='Use VAAPI hardware decoding (-hwaccel vaapi). '
+                             'Reduces CPU load significantly for MJPG input.')
+    parser.add_argument('--timestamp', action='store_true',
+                        help='Overlay current date/time on the video (bottom-right, scales with resolution)')
+    parser.add_argument('--global-quality', type=int, default=None, metavar='Q',
+                        help='h264_vaapi encoding quality (-global_quality). '
+                             'Effective range 1-51 in ICQ mode (lower = better quality). '
+                             'Requires -rc_mode ICQ to be active on the encoder.')
+    parser.add_argument('--format', default=None, metavar='FOURCC',
+                        help='Pixel format to use, e.g. MJPG or YUYV '
+                             '(narrows --priority selection; sets -input_format without --priority)')
+    parser.add_argument('rtmp_url', nargs='?', default=None,
+                        help='Destination RTMP URL (omit to scan cameras)')
+    args = parser.parse_args()
+    fourcc = args.format.upper() if args.format else None
+
+    # ── Scan mode ────────────────────────────────────────────────────────────
+    if args.rtmp_url is None:
+        if args.video_device:
+            cameras = [(args.video_device, None)]
+        else:
+            cameras = scan_all_devices()
+            if not cameras:
+                print('No V4L2 video devices found.', file=sys.stderr)
+                sys.exit(1)
+
+        for device, name in cameras:
+            cam = get_camera_info(device, name)
+            has_capture = any(f.sizes for f in cam.formats)
+            if not has_capture and not args.video_device:
+                continue  # skip metadata / non-capture devices in full scan
+
+            highlight = None
+            if args.priority and has_capture:
+                result = select_best(cam.formats, args.priority, fourcc)
+                if result:
+                    fmt, size, fps = result
+                    highlight = (fmt.fourcc, size.width, size.height)
+
+            display_camera_info(cam, highlight=highlight)
+
+            if highlight and result:
+                fmt, size, fps = result
+                label = args.priority + (f'/{fourcc}' if fourcc else '')
+                print(f'  → auto-select ({label}): '
+                      f'{size.width}x{size.height} @ {fmt_fps(fps)}fps [{fmt.fourcc}]')
+            print()
+        return
+
+    # ── Stream mode ───────────────────────────────────────────────────────────
+    video_device = args.video_device or '/dev/video0'
+
+    vaapi_device = args.vaapi_device
+    if vaapi_device is None:
+        vaapi_device = find_vaapi_device()
+        if vaapi_device is None:
+            print('Error: no VAAPI render device found under /dev/dri/', file=sys.stderr)
+            sys.exit(1)
+        print(f'VAAPI device (auto): {vaapi_device}')
+
+    input_format = video_size = framerate = None
+
+    # --format alone: fix the pixel format without auto-selecting size/fps
+    if fourcc and not args.priority:
+        input_format = FOURCC_TO_FFMPEG.get(fourcc, fourcc.lower())
+        print(f'Format: {fourcc} ({input_format})')
+
+    if args.priority:
+        cam = get_camera_info(video_device)
+        result = select_best(cam.formats, args.priority, fourcc)
+        if result is None:
+            qualifier = f' in {fourcc}' if fourcc else ''
+            print(f'Error: no usable formats found{qualifier} on {video_device}', file=sys.stderr)
+            sys.exit(1)
+        fmt, size, fps = result
+        input_format = FOURCC_TO_FFMPEG.get(fmt.fourcc, fmt.fourcc.lower())
+        video_size = f'{size.width}x{size.height}'
+        framerate = fps
+        label = args.priority + (f'/{fourcc}' if fourcc else '')
+        print(f'Auto-selected ({label}): {video_size} @ {fmt_fps(fps)}fps [{fmt.fourcc}]')
+
+    cmd = build_ffmpeg_cmd(video_device, vaapi_device, args.rtmp_url,
+                           input_format, video_size, framerate,
+                           args.global_quality, args.timestamp, args.hw_decode)
+
+    print(f'Streaming {video_device} -> {args.rtmp_url}', flush=True)
+    if args.vaapi_device:  # only repeat when user explicitly specified it
+        print(f'VAAPI device: {args.vaapi_device}', flush=True)
+    print(f'Command: {" ".join(cmd)}', flush=True)
+
+    proc = subprocess.Popen(cmd)
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.wait()  # let ffmpeg finish its own SIGINT cleanup
+        print('\nStopped.', flush=True)
+
+    sys.exit(proc.returncode)
+
+
+if __name__ == '__main__':
+    main()
