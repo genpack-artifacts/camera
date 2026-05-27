@@ -21,8 +21,10 @@
         "www-servers/nginx",
 //        "media-video/mjpg-streamer", // waiting for https://github.com/gentoo/gentoo/pull/41269 to be merged
         "media-libs/libjpeg-turbo", // so, this has to be pulled manually till then
-        "dev-lang/tcl", // for srs
-        "net-libs/libsrtp", // for srs
+        // srs: 公式ツリーの media-video/srs を採用 (旧 files/build.d/srs.sh を置換)。
+        // ビルドは Portage 側で完結し binpkg キャッシュが効く。バイナリは /usr/bin/srs-media。
+        // ref: srs/genpack.json5
+        "media-video/srs",
         "media-video/motion",
         "media-fonts/noto-cjk",
         "media-fonts/noto-emoji",
@@ -56,11 +58,13 @@
         "media-video/mjpg-streamer": null,
         "media-video/motion": null,
         "media-video/obs-studio": null,
+        "media-video/srs": null, // ~amd64 (今月ツリー入り)
     },
     use: {
         "media-libs/libva": "wayland",
         "media-video/mpv": "-X wayland vulkan nvenc vaapi",
         "media-video/motion": "alsa",
+        "media-video/srs": "srt h265 threads", // SRT取込 + H.265 + マルチスレッド
         "media-video/v4l2loopback": "dist-kernel",
         "media-video/ffmpeg": "v4l x264 x265 opus lame srt vaapi qsv nvenc alsa",
         "media-libs/mesa": "vaapi -X wayland vulkan VIDEO_CARDS: virgl",
@@ -102,5 +106,5 @@
     setup_commands: [
         "pip install --break-system-packages onnxruntime"
     ],
-    services: ["status-beep"],
+    services: ["status-beep"], // srs は自動起動せず (unit は同梱、インスタンスごとに任意で enable)
 }
