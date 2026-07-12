@@ -1,0 +1,17 @@
+# go2rtc restreamer (single binary installed by files/build.d/go2rtc.sh).
+# Not enabled by default; enable per instance: systemctl enable --now go2rtc
+# Config: /etc/go2rtc.yaml (edit streams for your cameras).
+# Default ports: RTSP 8554, Web UI 1984, WebRTC 8555.
+[Unit]
+Description=go2rtc camera restreamer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/go2rtc -config /etc/go2rtc.yaml
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

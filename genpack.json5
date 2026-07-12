@@ -106,5 +106,6 @@
     setup_commands: [
         "pip install --break-system-packages onnxruntime"
     ],
-    services: ["status-beep"], // srs は自動起動せず (unit は同梱、インスタンスごとに任意で enable)
+    // srs / go2rtc は自動起動せず (unit は同梱、インスタンスごとに任意で enable)
+    services: ["status-beep"],
 }

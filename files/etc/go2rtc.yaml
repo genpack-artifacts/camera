@@ -1,0 +1,26 @@
+# go2rtc config template for RTSP restream.
+# Docs: https://github.com/AlexxIT/go2rtc
+#
+# Camera sees one client (go2rtc). Consumers (ffmpeg record, VLC, etc.)
+# connect to go2rtc instead of the camera.
+#
+# Example consumers after enable:
+#   VLC:    rtsp://<host>:8554/cam1
+#   ffmpeg: ffmpeg -rtsp_transport tcp -i rtsp://127.0.0.1:8554/cam1 -c copy ...
+#
+# Default listen ports:
+#   RTSP 8554, Web UI http://<host>:1984, WebRTC 8555
+
+streams:
+  # Replace with your camera RTSP URL (one connection from go2rtc to the camera).
+  cam1:
+    - rtsp://user:password@192.168.1.10:554/stream1
+
+  # Optional: second stream name if the camera has a substream path.
+  # cam1_sub:
+  #   - rtsp://user:password@192.168.1.10:554/stream2
+
+# Uncomment to require credentials for non-localhost RTSP clients.
+# rtsp:
+#   username: admin
+#   password: change-me
