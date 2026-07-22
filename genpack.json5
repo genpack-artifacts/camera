@@ -30,7 +30,7 @@
         "media-fonts/noto-emoji",
         "media-video/obs-studio",
         "net-misc/networkmanager",
-        "net-dns/bind-tools",
+        "net-dns/doggo",
         "dev-python/aiohttp",
         "dev-python/ffmpeg-python",
         "dev-python/pillow",
